@@ -2,3 +2,5 @@
 venv/
 .venv/
 .env
+BookProj/db.sqlite3
+UserProj/db.sqlite3
