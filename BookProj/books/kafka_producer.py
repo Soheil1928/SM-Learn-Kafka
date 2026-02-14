@@ -1,0 +1,48 @@
+# books/kafka_producer.py
+import json
+import logging
+from confluent_kafka import Producer
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+
+class KafkaProducerClient:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.producer = Producer({
+                'bootstrap.servers': settings.KAFKA_BOOTSTRAP_SERVERS,
+                'client.id': 'book-service-producer',
+                'acks': 'all',
+                'retries': 3,
+            })
+        return cls._instance
+
+    def send_message(self, topic, key, value):
+        try:
+            self.producer.produce(
+                topic=topic,
+                key=str(key).encode('utf-8'),
+                value=json.dumps(value).encode('utf-8'),
+                callback=self.delivery_report
+            )
+            self.producer.poll(0)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send message: {e}")
+            return False
+
+    def delivery_report(self, err, msg):
+        if err is not None:
+            logger.error(f"Message delivery failed: {err}")
+        else:
+            logger.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+
+    def flush(self):
+        self.producer.flush()
+
+
+kafka_producer = KafkaProducerClient()
